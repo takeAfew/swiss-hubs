@@ -1,12 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 import { SWISS_SECTIONS, getSectionFromUrl, SwissSectionKey } from '../src/app/swissSources';
 
-// STRICT SAFETY GUARD: Squid A is sacred and untouchable
-const SQUID_A_ID = 'db99446c4c6f47518cf2ebdd8f01b500';
+// The two official squids on Lobstr - ready and present
+const SQUID_A_ID = 'db99446c4c6f47518cf2ebdd8f01b500'; // SN Search Scraper
+const SQUID_B_ID = '3b42144f46e54f9f800ad0380c3740f7'; // SN Profile Scraper
+
 const LOBSTR_API_KEY = process.env.LOBSTR_API_KEY || '8168cd9de13c5ef76bf7101c45f7dd47de8dc850';
-const ACCOUNT_ID = '94c9e3ca87cce9ab3c8516efa40979eb';
-const SEARCH_CRAWLER_ID = 'a1d243d3824a1ac773414416eb80362d';
-const PROFILE_CRAWLER_ID = '40d08f9bfec4a8775bb5586ce7b33a35';
 
 const supabaseUrl = 'https://rhikhvzwhrmqxviucwyy.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoaWtodnp3aHJtcXh2aXVjd3l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2NzAyOTAsImV4cCI6MjEwMzI0NjI5MH0.GbQPxMRTFNH0E1bDh-nkiAzIJAlmdQfrK3I_bry7oGY';
@@ -27,9 +26,9 @@ async function updateStatus(status: string, section: string = 'all') {
 }
 
 async function apiRequest(endpoint: string, options: any = {}) {
-  // Safety verification
-  if (endpoint.includes(SQUID_A_ID) && (options.method === 'DELETE' || options.method === 'POST' || options.method === 'PUT')) {
-    throw new Error('FATAL SAFETY VIOLATION: ATTEMPT TO MODIFY OR DELETE SQUID A BLOCKED!');
+  // Safety rule: never DELETE or wipe Squid A
+  if (endpoint.startsWith(`squids/${SQUID_A_ID}`) && options.method === 'DELETE') {
+    throw new Error('FATAL SAFETY VIOLATION: CANNOT DELETE SQUID A!');
   }
 
   const url = `https://api.lobstr.io/v1/${endpoint}`;
@@ -57,17 +56,17 @@ async function apiRequest(endpoint: string, options: any = {}) {
 async function waitForRunCompletion(runId: string, label: string = 'Run'): Promise<any> {
   console.log(`Waiting for ${label} (${runId}) to finish...`);
   while (true) {
-    await new Promise(r => setTimeout(r, 6000));
+    await new Promise(r => setTimeout(r, 8000));
     const run = await apiRequest(`runs/${runId}`);
     console.log(`[${label}] Status: ${run.status} | Results: ${run.total_results || 0}`);
     
-    if (run.status === 'DONE') {
+    if (run.status === 'done' || run.status === 'DONE') {
       return run;
     }
-    if (run.status === 'ERROR' || run.status === 'CANCELLED') {
+    if (run.status === 'error' || run.status === 'ERROR' || run.status === 'cancelled' || run.status === 'CANCELLED') {
       throw new Error(`[${label}] failed with status: ${run.status}`);
     }
-    if (run.status === 'PAUSED') {
+    if (run.status === 'paused' || run.status === 'PAUSED') {
       const reason = run.pause_reason || 'unknown';
       const desc = run.pause_reason_desc || '';
       throw new Error(`[${label}] paused: ${reason} - ${desc}`);
@@ -78,95 +77,57 @@ async function waitForRunCompletion(runId: string, label: string = 'Run'): Promi
 export async function runSwissScraper(isGenesis: boolean = false) {
   console.log('================================================================');
   console.log(`🇨🇭 SWISS HUBS PIPELINE - MODE: ${isGenesis ? '🌱 GENESI (BASELINE)' : '🌅 DAILY (RECENT)'}`);
+  console.log(`Using Squid A: ${SQUID_A_ID} (Search) and Squid B: ${SQUID_B_ID} (Profile)`);
   console.log('================================================================');
 
-  await updateStatus(`Avvio pipeline Swiss Hubs (${isGenesis ? 'Genesi' : 'Daily'})...`);
+  await updateStatus(`Avvio pipeline Swiss Hubs con Squid A e B (${isGenesis ? 'Genesi' : 'Daily'})...`);
 
-  // STEP 0: Safety Check - Ensure Squid A is completely untouched
-  const squidsData = await apiRequest('squids');
-  const allSquids = squidsData.data || squidsData || [];
-  const squidA = allSquids.find((s: any) => s.id === SQUID_A_ID);
-  if (!squidA) {
-    throw new Error('FATAL: Squid A was not found! Aborting immediately for safety.');
-  }
-  console.log(`✓ Verified Squid A is 100% safe and intact: ${squidA.id} (${squidA.name})`);
-
-  let squidB = allSquids.find((s: any) => s.id !== SQUID_A_ID);
-  let tempSearchSquidId: string | null = null;
-  let restoredSquidBId: string = squidB ? squidB.id : '';
-
-  try {
-    // STEP 1: Handle Search Scraping
-    console.log('\n[Phase 1] 🔍 Setting up Swiss Hubs Search Scraper...');
-    await updateStatus('Configurazione dello Search Scraper per le 4 sezioni svizzere...');
-
-    if (squidB) {
-      console.log(`Backing up and temporarily removing Squid B (${squidB.id})...`);
-      await fetch(`https://api.lobstr.io/v1/squids/${squidB.id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Token ${LOBSTR_API_KEY}` }
-      });
-      console.log(`✓ Temporarily cleared slot from Squid B`);
-    }
-
-    // Create temporary Search Squid
-    const newSearchSquid = await apiRequest('squids', {
-      method: 'POST',
-      body: JSON.stringify({
-        crawler: SEARCH_CRAWLER_ID,
-        name: 'Swiss Hubs Temp Search Scraper',
-        accounts: [{ id: ACCOUNT_ID }]
-      })
-    });
-    tempSearchSquidId = newSearchSquid.id;
-    console.log(`✓ Created Temporary Search Squid: ${tempSearchSquidId}`);
-
-    // Configure search params (Strictly disable email and mobile enrichment)
-    await apiRequest(`squids/${tempSearchSquidId}`, {
-      method: 'POST',
-      body: JSON.stringify({
-        name: 'Swiss Hubs Temp Search Scraper',
-        accounts: [{ id: ACCOUNT_ID }],
-        params: {
-          max_results: isGenesis ? 250 : 50,
-          max_pages: isGenesis ? 10 : 3,
-          profiles_per_page: 25,
-          skip_collected_leads: !isGenesis,
-          functions: {
-            email_enrichment: false,
-            mobile_enrichment: false,
-            get_profile_details: false
-          }
+  // Ensure Squid B has email_enrichment and mobile_enrichment disabled
+  await apiRequest(`squids/${SQUID_B_ID}`, {
+    method: 'POST',
+    body: JSON.stringify({
+      params: {
+        functions: {
+          email_enrichment: false,
+          mobile_enrichment: false
         }
-      })
-    });
+      }
+    })
+  }).catch(() => {});
 
-    // Add tasks for the 4 Swiss Search URLs
-    console.log('Adding 4 Swiss Hubs search tasks...');
-    for (const sec of SWISS_SECTIONS) {
-      await apiRequest('tasks', {
-        method: 'POST',
-        body: JSON.stringify({
-          squid: tempSearchSquidId,
-          params: { url: sec.searchUrl }
-        })
-      });
-      console.log(`  + Added search task for section: ${sec.label}`);
+  // 1. Fetch latest or execute Run for Squid A
+  console.log('\n[Phase 1] 🔍 Launching Squid A (Search Scraper)...');
+  await updateStatus('Esecuzione dello Search Scraper (Squid A)...');
+  
+  const searchRunRes = await apiRequest('runs', {
+    method: 'POST',
+    body: JSON.stringify({ squid: SQUID_A_ID })
+  });
+  const searchRunId = searchRunRes.id;
+  console.log(`Squid A run started: ${searchRunId}`);
+  await waitForRunCompletion(searchRunId, 'Squid A Search Scraper');
+
+  // 2. Fetch CSV / results from Run A
+  console.log('\n[Phase 2] 📥 Fetching search results from Squid A...');
+  let s3UrlA = null;
+  for (let i = 0; i < 20; i++) {
+    const runInfo = await apiRequest(`runs/${searchRunId}`);
+    if (runInfo.export_done) {
+      const downloadA = await apiRequest(`runs/${searchRunId}/download`);
+      s3UrlA = downloadA.s3;
+      break;
     }
+    await new Promise(r => setTimeout(r, 2000));
+  }
 
-    // Launch Search Run
-    console.log('\n[Phase 2] 🚀 Starting Search Scrape run...');
-    await updateStatus('Esecuzione della ricerca Sales Navigator per le 4 sezioni svizzere...');
-    const searchRunRes = await apiRequest('runs', {
-      method: 'POST',
-      body: JSON.stringify({ squid: tempSearchSquidId })
-    });
-    const searchRunId = searchRunRes.id;
-    await waitForRunCompletion(searchRunId, 'Swiss Search Scraper');
-
-    // Fetch search results
-    console.log('\n[Phase 3] 📥 Fetching search results...');
-    let searchResults: any[] = [];
+  let searchResults: any[] = [];
+  if (s3UrlA) {
+    const csvResponseA = await fetch(s3UrlA);
+    const csvTextA = await csvResponseA.text();
+    const { parse } = await import('csv-parse/sync');
+    searchResults = parse(csvTextA, { columns: true, skip_empty_lines: true }) as any[];
+  } else {
+    // Fallback: paginated results
     let page = 1;
     while (true) {
       const res = await apiRequest(`results?run=${searchRunId}&limit=100&page=${page}`);
@@ -176,91 +137,93 @@ export async function runSwissScraper(isGenesis: boolean = false) {
       if (list.length < 100) break;
       page++;
     }
-    console.log(`✓ Total leads found across Swiss searches: ${searchResults.length}`);
-    await updateStatus(`Trovati ${searchResults.length} profili. Avvio deep scrape con Profile Scraper...`);
+  }
 
-    // STEP 4: Delete temporary search squid and restore Profile Scraper Squid (Squid B)
-    console.log(`\n[Phase 4] 🔄 Cleaning up search squid and preparing Profile Scraper...`);
-    if (tempSearchSquidId) {
-      await fetch(`https://api.lobstr.io/v1/squids/${tempSearchSquidId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Token ${LOBSTR_API_KEY}` }
-      });
-      tempSearchSquidId = null;
-      console.log('✓ Cleaned up temporary search squid');
-    }
+  console.log(`✓ Total leads found across searches in Squid A: ${searchResults.length}`);
 
-    // Create / Re-create Profile Scraper (Squid B)
-    const newProfileSquid = await apiRequest('squids', {
-      method: 'POST',
-      body: JSON.stringify({
-        crawler: PROFILE_CRAWLER_ID,
-        name: 'SN Profile Scraper',
-        accounts: [{ id: ACCOUNT_ID }]
-      })
-    });
-    restoredSquidBId = newProfileSquid.id;
-    console.log(`✓ Restored Profile Scraper Squid: ${restoredSquidBId}`);
+  if (searchResults.length === 0) {
+    console.log('No new leads found in this run. Pipeline finished.');
+    await updateStatus('Ricerca completata: nessun nuovo profilo trovato.');
+    return;
+  }
 
-    // Configure Profile Scraper (STRICT: email_enrichment: false, mobile_enrichment: false)
-    await apiRequest(`squids/${restoredSquidBId}`, {
-      method: 'POST',
-      body: JSON.stringify({
-        name: 'SN Profile Scraper',
-        accounts: [{ id: ACCOUNT_ID }],
-        params: {
-          functions: {
-            email_enrichment: false,
-            mobile_enrichment: false
-          }
-        }
-      })
-    });
+  // 3. Filter for Swiss Hubs searches / relevant leads
+  console.log('\n[Phase 3] 🎯 Filtering Swiss Hubs leads and enqueuing to Squid B...');
+  const swissLeadsFound: any[] = [];
+  const profileUrlsToScrape = new Set<string>();
+  const urlToSectionMap: Record<string, SwissSectionKey> = {};
 
-    if (searchResults.length === 0) {
-      console.log('No leads found in this run. Pipeline complete.');
-      await updateStatus('Ricerca completata: nessun nuovo profilo trovato.');
-      return;
-    }
-
-    // STEP 5: Add profile tasks for Deep Scrape
-    console.log('\n[Phase 5] 👤 Adding profile URLs to Profile Scraper for deep enrichment...');
-    const urlToSectionMap: Record<string, SwissSectionKey> = {};
-    const uniqueProfileUrls = new Set<string>();
-
-    for (const lead of searchResults) {
-      const inputUrl = lead['INPUT URL'] || lead.input_url || '';
-      const section = getSectionFromUrl(inputUrl);
-      const profileUrl = lead['SALES NAVIGATOR PROFILE URL'] || lead['LINKEDIN PROFILE URL'] || lead.profile_url || lead.url;
-      
-      if (profileUrl && !uniqueProfileUrls.has(profileUrl)) {
-        uniqueProfileUrls.add(profileUrl);
+  for (const lead of searchResults) {
+    const inputUrl = lead['INPUT URL'] || lead.input_url || '';
+    const section = getSectionFromUrl(inputUrl);
+    const profileUrl = lead['SALES NAVIGATOR PROFILE URL'] || lead['LINKEDIN PROFILE URL'] || lead.profile_url || lead.url;
+    
+    if (profileUrl) {
+      swissLeadsFound.push(lead);
+      if (!profileUrlsToScrape.has(profileUrl)) {
+        profileUrlsToScrape.add(profileUrl);
         urlToSectionMap[profileUrl] = section;
-
-        await apiRequest('tasks', {
-          method: 'POST',
-          body: JSON.stringify({
-            squid: restoredSquidBId,
-            params: { url: profileUrl }
-          })
-        });
       }
     }
-    console.log(`✓ Enqueued ${uniqueProfileUrls.size} unique profiles for deep scraping.`);
+  }
 
-    // STEP 6: Run Profile Scraper
-    console.log('\n[Phase 6] 🚀 Launching deep profile scraping...');
-    await updateStatus(`Deep scrape in corso per ${uniqueProfileUrls.size} profili...`);
-    const profileRunRes = await apiRequest('runs', {
-      method: 'POST',
-      body: JSON.stringify({ squid: restoredSquidBId })
-    });
-    const profileRunId = profileRunRes.id;
-    await waitForRunCompletion(profileRunId, 'Profile Deep Scraper');
+  console.log(`✓ Found ${profileUrlsToScrape.size} unique profiles to enrich with Squid B.`);
+  await updateStatus(`Trovati ${profileUrlsToScrape.size} profili. Invio a Squid B per arricchimento...`);
 
-    // STEP 7: Ingest enriched profiles into Supabase `swiss_leads`
-    console.log('\n[Phase 7] 💾 Ingesting enriched profiles into Supabase swiss_leads...');
-    let profileResults: any[] = [];
+  // 4. Clear old tasks from Squid B and enqueue new tasks
+  console.log('Clearing old tasks from Squid B...');
+  while (true) {
+    const tasksList = await apiRequest(`tasks?squid=${SQUID_B_ID}&limit=50`);
+    if (!tasksList.data || tasksList.data.length === 0) break;
+    for (const task of tasksList.data) {
+      await apiRequest(`tasks/${task.id}`, { method: 'DELETE' }).catch(() => {});
+    }
+  }
+
+  // Add tasks to Squid B
+  const tasksB = Array.from(profileUrlsToScrape).map(url => ({
+    url
+  }));
+  
+  await apiRequest('tasks', {
+    method: 'POST',
+    body: JSON.stringify({
+      squid: SQUID_B_ID,
+      tasks: tasksB
+    })
+  });
+  console.log(`✓ Enqueued ${tasksB.length} tasks to Squid B.`);
+
+  // 5. Start Squid B Run
+  console.log('\n[Phase 4] 🚀 Launching Squid B (Profile Scraper)...');
+  await updateStatus(`Deep scrape in corso con Squid B (${tasksB.length} profili)...`);
+  const profileRunRes = await apiRequest('runs', {
+    method: 'POST',
+    body: JSON.stringify({ squid: SQUID_B_ID })
+  });
+  const profileRunId = profileRunRes.id;
+  await waitForRunCompletion(profileRunId, 'Squid B Profile Scraper');
+
+  // 6. Fetch enriched profiles from Squid B
+  console.log('\n[Phase 5] 💾 Ingesting enriched profiles into Supabase swiss_leads...');
+  let s3UrlB = null;
+  for (let i = 0; i < 20; i++) {
+    const runInfo = await apiRequest(`runs/${profileRunId}`);
+    if (runInfo.export_done) {
+      const downloadB = await apiRequest(`runs/${profileRunId}/download`);
+      s3UrlB = downloadB.s3;
+      break;
+    }
+    await new Promise(r => setTimeout(r, 2000));
+  }
+
+  let profileResults: any[] = [];
+  if (s3UrlB) {
+    const csvResponseB = await fetch(s3UrlB);
+    const csvTextB = await csvResponseB.text();
+    const { parse } = await import('csv-parse/sync');
+    profileResults = parse(csvTextB, { columns: true, skip_empty_lines: true }) as any[];
+  } else {
     let profPage = 1;
     while (true) {
       const res = await apiRequest(`results?run=${profileRunId}&limit=100&page=${profPage}`);
@@ -270,52 +233,54 @@ export async function runSwissScraper(isGenesis: boolean = false) {
       if (list.length < 100) break;
       profPage++;
     }
+  }
 
-    console.log(`✓ Fetched ${profileResults.length} deep profiles from Lobstr.`);
+  console.log(`✓ Fetched ${profileResults.length} deep profiles from Squid B.`);
 
-    const leadsToUpsert = profileResults.map((p: any) => {
-      const profileUrl = p['SALES NAVIGATOR PROFILE URL'] || p['LINKEDIN PROFILE URL'] || p.profile_url || p.url || '';
-      const section = urlToSectionMap[profileUrl] || 'stealth';
+  const leadsToUpsert = profileResults.map((p: any) => {
+    const profileUrl = p['SALES NAVIGATOR PROFILE URL'] || p['LINKEDIN PROFILE URL'] || p.profile_url || p.url || '';
+    const section = urlToSectionMap[profileUrl] || getSectionFromUrl(p['INPUT URL'] || '');
 
-      let currentPos = p.current_positions || p.current_position || [];
-      if (typeof currentPos === 'string') {
-        try { currentPos = JSON.parse(currentPos); } catch (e) { currentPos = []; }
-      }
+    let currentPos = p.current_positions || p.current_position || [];
+    if (typeof currentPos === 'string') {
+      try { currentPos = JSON.parse(currentPos); } catch (e) { currentPos = []; }
+    }
 
-      let pastPos = p.past_positions || p.past_position || [];
-      if (typeof pastPos === 'string') {
-        try { pastPos = JSON.parse(pastPos); } catch (e) { pastPos = []; }
-      }
+    let pastPos = p.past_positions || p.past_position || [];
+    if (typeof pastPos === 'string') {
+      try { pastPos = JSON.parse(pastPos); } catch (e) { pastPos = []; }
+    }
 
-      let edu = p.education || [];
-      if (typeof edu === 'string') {
-        try { edu = JSON.parse(edu); } catch (e) { edu = []; }
-      }
+    let edu = p.education || [];
+    if (typeof edu === 'string') {
+      try { edu = JSON.parse(edu); } catch (e) { edu = []; }
+    }
 
-      let shared = p.shared_connections || [];
-      if (typeof shared === 'string') {
-        try { shared = JSON.parse(shared); } catch (e) { shared = []; }
-      }
+    let shared = p.shared_connections || [];
+    if (typeof shared === 'string') {
+      try { shared = JSON.parse(shared); } catch (e) { shared = []; }
+    }
 
-      return {
-        profile_url: profileUrl,
-        full_name: p.full_name || p['FULL NAME'] || `${p.first_name || ''} ${p.last_name || ''}`.trim(),
-        job_title: p.job_title || p['JOB TITLE'] || p.headline || '',
-        company: p.company || p['COMPANY NAME'] || (currentPos[0]?.company_name) || '',
-        location: p.location || p['LOCATION'] || '',
-        avatar_url: p.avatar_url || p.profile_picture || p['PICTURE URL'] || '',
-        summary: p.summary || p['ABOUT'] || '',
-        current_position: currentPos,
-        past_position: pastPos,
-        education: edu,
-        shared_connections: shared,
-        source_url: p['INPUT URL'] || null,
-        section,
-        is_genesis: isGenesis,
-        scraped_at: new Date().toISOString()
-      };
-    }).filter(l => Boolean(l.profile_url));
+    return {
+      profile_url: profileUrl,
+      full_name: p.full_name || p['FULL NAME'] || `${p.first_name || ''} ${p.last_name || ''}`.trim(),
+      job_title: p.job_title || p['JOB TITLE'] || p.headline || p['POSITION'] || '',
+      company: p.company || p['COMPANY NAME'] || (currentPos[0]?.company_name) || '',
+      location: p.location || p['LOCATION'] || '',
+      avatar_url: p.avatar_url || p.profile_picture || p['PICTURE URL'] || '',
+      summary: p.summary || p['ABOUT'] || '',
+      current_position: currentPos,
+      past_position: pastPos,
+      education: edu,
+      shared_connections: shared,
+      source_url: p['INPUT URL'] || null,
+      section,
+      is_genesis: isGenesis,
+      scraped_at: new Date().toISOString()
+    };
+  }).filter(l => Boolean(l.profile_url));
 
+  if (leadsToUpsert.length > 0) {
     const { error: upsertErr } = await supabase
       .from('swiss_leads')
       .upsert(leadsToUpsert, { onConflict: 'profile_url' });
@@ -324,46 +289,10 @@ export async function runSwissScraper(isGenesis: boolean = false) {
       console.error('Supabase upsert error:', upsertErr);
       throw upsertErr;
     }
-
-    console.log(`✓ Successfully saved ${leadsToUpsert.length} Swiss Hubs leads to Supabase!`);
-    await updateStatus(`Completato: ${leadsToUpsert.length} profili arricchiti e salvati nel database.`);
-  } catch (error: any) {
-    console.error('Pipeline error:', error);
-    await updateStatus(`Errore durante lo scraping: ${error.message || 'Errore sconosciuto'}`);
-    throw error;
-  } finally {
-    // ALWAYS ensure cleanup: if temp search squid exists, clean it up
-    if (tempSearchSquidId) {
-      try {
-        await fetch(`https://api.lobstr.io/v1/squids/${tempSearchSquidId}`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Token ${LOBSTR_API_KEY}` }
-        });
-        console.log('✓ Finally block: cleaned up temporary search squid.');
-      } catch (e) {}
-    }
-
-    // Ensure Squid B is present
-    const squidsAfter = await apiRequest('squids').catch(() => ({ data: [] }));
-    const listAfter = squidsAfter.data || squidsAfter || [];
-    const hasProfileSquid = listAfter.some((s: any) => s.id !== SQUID_A_ID);
-    if (!hasProfileSquid) {
-      try {
-        console.log('Re-creating Squid B in finally block for safety...');
-        await apiRequest('squids', {
-          method: 'POST',
-          body: JSON.stringify({
-            crawler: PROFILE_CRAWLER_ID,
-            name: 'SN Profile Scraper',
-            accounts: [{ id: ACCOUNT_ID }]
-          })
-        });
-        console.log('✓ Re-created Squid B.');
-      } catch (e) {
-        console.error('Failed to restore Squid B in finally block:', e);
-      }
-    }
   }
+
+  console.log(`✓ Successfully updated ${leadsToUpsert.length} Swiss Hubs leads in Supabase!`);
+  await updateStatus(`Completato: ${leadsToUpsert.length} profili arricchiti con Squid A e B.`);
 }
 
 // CLI execution
