@@ -72,7 +72,7 @@ export default function TabsWrapper({
               {scraperStatus}
             </span>
             {lastUpdated && (
-              <span className="text-gray-400 text-[10px] ml-1">
+              <span className="text-gray-400 text-[10px] ml-1" suppressHydrationWarning>
                 ({new Date(lastUpdated).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })})
               </span>
             )}

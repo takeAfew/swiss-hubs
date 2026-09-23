@@ -250,9 +250,30 @@ export async function runSwissScraper(isGenesis: boolean = false) {
     const profileUrl = p['SALES NAVIGATOR PROFILE URL'] || p['LINKEDIN PROFILE URL'] || p.profile_url || p.url || '';
     let section = urlToSectionMap[profileUrl] || getSectionFromUrl(p['INPUT URL'] || '');
 
-    let currentPos = p.current_positions || p.current_position || [];
-    if (typeof currentPos === 'string') {
-      try { currentPos = JSON.parse(currentPos); } catch (e) { currentPos = []; }
+    let allPos = p.positions || p['POSITIONS'] || p.jobs || p.experiences || [];
+    if (typeof allPos === 'string') {
+      try { allPos = JSON.parse(allPos); } catch (e) { allPos = []; }
+    }
+
+    let currentPos: any[] = [];
+    let pastPos: any[] = [];
+
+    if (Array.isArray(allPos) && allPos.length > 0) {
+      currentPos = allPos.filter((pos: any) => pos.current === true);
+      pastPos = allPos.filter((pos: any) => pos.current === false);
+      if (currentPos.length === 0 && allPos.length > 0) {
+        currentPos = [allPos[0]];
+        pastPos = allPos.slice(1);
+      }
+    } else {
+      currentPos = p.current_positions || p.current_position || [];
+      if (typeof currentPos === 'string') {
+        try { currentPos = JSON.parse(currentPos); } catch (e) { currentPos = []; }
+      }
+      pastPos = p.past_positions || p.past_position || [];
+      if (typeof pastPos === 'string') {
+        try { pastPos = JSON.parse(pastPos); } catch (e) { pastPos = []; }
+      }
     }
 
     // Smart tenure classification for 1 to 2 years
@@ -268,11 +289,6 @@ export async function runSwissScraper(isGenesis: boolean = false) {
           section = 'less_1_year';
         }
       }
-    }
-
-    let pastPos = p.past_positions || p.past_position || [];
-    if (typeof pastPos === 'string') {
-      try { pastPos = JSON.parse(pastPos); } catch (e) { pastPos = []; }
     }
 
     let edu = p.education || [];

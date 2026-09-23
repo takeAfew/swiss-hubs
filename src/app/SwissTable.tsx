@@ -200,7 +200,7 @@ export function SwissTable({
         <div className="flex-1 min-w-0">
           <div className={`${titleColor} truncate text-[11px] font-semibold`} title={cName}>{cName}</div>
           <div className={`${subColor} truncate text-[10px] mt-0.5`} title={job.title}>{job.title}</div>
-          <div className="text-gray-500 truncate text-[9px] mt-0.5">{formatDuration(job.started_on, job.ended_on)}</div>
+          <div className="text-gray-500 truncate text-[9px] mt-0.5" suppressHydrationWarning>{formatDuration(job.started_on, job.ended_on)}</div>
         </div>
       </div>
     );
@@ -234,7 +234,7 @@ export function SwissTable({
           <div className="text-indigo-800/80 font-normal truncate text-[10px] mt-0.5" title={edu.degree_name || edu.degree || edu.field_of_study}>
             {edu.degree_name || edu.degree || edu.field_of_study || 'Student'}
           </div>
-          <div className="text-indigo-600/70 truncate text-[9px] mt-0.5">{formatDuration(edu.started_on, edu.ended_on)}</div>
+          <div className="text-indigo-600/70 truncate text-[9px] mt-0.5" suppressHydrationWarning>{formatDuration(edu.started_on, edu.ended_on)}</div>
         </div>
       </div>
     );
@@ -443,7 +443,7 @@ export function SwissTable({
                         {/* VC Investors Badge */}
                         <VcConnectionsBadge connections={lead.vcConnections} />
 
-                        <div className="text-[9px] text-gray-400 font-medium tracking-tight whitespace-nowrap mt-0.5">
+                        <div className="text-[9px] text-gray-400 font-medium tracking-tight whitespace-nowrap mt-0.5" suppressHydrationWarning>
                           {lead.dateStr}
                         </div>
                       </div>
