@@ -330,7 +330,7 @@ export function SwissTable({
             {filteredLeads.length === 0 ? (
               <tr>
                 <td colSpan={7} className="py-8 text-center text-sm text-gray-500">
-                  Nessun profilo trovato con i filtri attuali.
+                  No profiles found matching current filters.
                 </td>
               </tr>
             ) : (

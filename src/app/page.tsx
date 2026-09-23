@@ -30,7 +30,7 @@ export default async function Home() {
   const leads = leadsRes.data || [];
   const initialProfiles = profilesRes.data || [];
   const statusRow = statusRes.data?.[0];
-  const scraperStatus = statusRow?.status || 'In attesa del primo scrape';
+  const scraperStatus = statusRow?.status || 'Awaiting first scrape';
   const lastUpdated = statusRow?.updated_at || '';
 
   return (

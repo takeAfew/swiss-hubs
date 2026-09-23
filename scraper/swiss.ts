@@ -89,7 +89,7 @@ export async function runSwissScraper(isGenesis: boolean = false) {
   console.log(`Using Squid A: ${SQUID_A_ID} (Search) and Squid B: ${SQUID_B_ID} (Profile)`);
   console.log('================================================================');
 
-  await updateStatus(`Avvio pipeline Swiss Hubs con Squid A e B (${isGenesis ? 'Genesi' : 'Daily'})...`);
+  await updateStatus(`Starting Swiss Hubs pipeline with Squid A and B (${isGenesis ? 'Genesis' : 'Daily'})...`);
 
   // Ensure Squid B has email_enrichment and mobile_enrichment disabled
   await apiRequest(`squids/${SQUID_B_ID}`, {
@@ -106,7 +106,7 @@ export async function runSwissScraper(isGenesis: boolean = false) {
 
   // 1. Fetch latest or execute Run for Squid A
   console.log('\n[Phase 1] 🔍 Launching Squid A (Search Scraper)...');
-  await updateStatus('Esecuzione dello Search Scraper (Squid A)...');
+  await updateStatus('Running Search Scraper (Squid A)...');
   
   const searchRunRes = await apiRequest('runs', {
     method: 'POST',
@@ -152,7 +152,7 @@ export async function runSwissScraper(isGenesis: boolean = false) {
 
   if (searchResults.length === 0) {
     console.log('No new leads found in this run. Pipeline finished.');
-    await updateStatus('Ricerca completata: nessun nuovo profilo trovato.');
+    await updateStatus('Search complete: no new profiles found.');
     return;
   }
 
@@ -177,7 +177,7 @@ export async function runSwissScraper(isGenesis: boolean = false) {
   }
 
   console.log(`✓ Found ${profileUrlsToScrape.size} unique profiles to enrich with Squid B.`);
-  await updateStatus(`Trovati ${profileUrlsToScrape.size} profili. Invio a Squid B per arricchimento...`);
+  await updateStatus(`Found ${profileUrlsToScrape.size} profiles. Sending to Squid B for enrichment...`);
 
   // 4. Clear old tasks from Squid B and enqueue new tasks
   console.log('Clearing old tasks from Squid B...');
@@ -205,7 +205,7 @@ export async function runSwissScraper(isGenesis: boolean = false) {
 
   // 5. Start Squid B Run
   console.log('\n[Phase 4] 🚀 Launching Squid B (Profile Scraper)...');
-  await updateStatus(`Deep scrape in corso con Squid B (${tasksB.length} profili)...`);
+  await updateStatus(`Deep scrape in progress with Squid B (${tasksB.length} profiles)...`);
   const profileRunRes = await apiRequest('runs', {
     method: 'POST',
     body: JSON.stringify({ squid: SQUID_B_ID })
@@ -344,7 +344,7 @@ export async function runSwissScraper(isGenesis: boolean = false) {
   }
 
   console.log(`✓ Successfully updated ${deduplicatedLeads.length} Swiss Hubs leads in Supabase!`);
-  await updateStatus(`Completato: ${deduplicatedLeads.length} profili arricchiti con Squid A e B.`);
+  await updateStatus(`Completed: ${deduplicatedLeads.length} profiles enriched with Squid A and B.`);
 }
 
 // CLI execution

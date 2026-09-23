@@ -26,7 +26,7 @@ export function PnpConnectionsBadge({ connections, expanded: controlledExpanded,
           rel="noopener noreferrer"
           onClick={e => e.stopPropagation()}
           className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200/60 hover:bg-blue-100 hover:text-blue-800 transition-all duration-150 ease-out active:scale-95 shadow-sm max-w-[140px] truncate"
-          title={`Apri profilo LinkedIn di ${conn.name}`}
+          title={`Open LinkedIn profile of ${conn.name}`}
         >
           🔗 {conn.name}
         </a>
@@ -45,7 +45,7 @@ export function PnpConnectionsBadge({ connections, expanded: controlledExpanded,
             rel="noopener noreferrer"
             onClick={e => e.stopPropagation()}
             className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200/60 hover:bg-blue-100 hover:text-blue-800 transition-all duration-150 ease-out active:scale-95 shadow-sm max-w-[140px] truncate"
-            title={`Apri profilo LinkedIn di ${connections[0].name}`}
+            title={`Open LinkedIn profile of ${connections[0].name}`}
           >
             🔗 {connections[0].name}
           </a>
@@ -69,7 +69,7 @@ export function PnpConnectionsBadge({ connections, expanded: controlledExpanded,
               rel="noopener noreferrer"
               onClick={e => e.stopPropagation()}
               className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200/60 hover:bg-blue-100 hover:text-blue-800 transition-all duration-150 ease-out active:scale-95 shadow-sm max-w-[140px] truncate"
-              title={`Apri profilo LinkedIn di ${conn.name}`}
+              title={`Open LinkedIn profile of ${conn.name}`}
             >
               🔗 {conn.name}
             </a>

@@ -8,7 +8,7 @@ import { seedLogoCache } from './CompanyLogo';
 export default function TabsWrapper({
   leads = [],
   initialProfiles = [],
-  scraperStatus = 'In attesa del primo scrape',
+  scraperStatus = 'Awaiting first scrape',
   lastUpdated = ''
 }: {
   leads: any[];
@@ -44,7 +44,7 @@ export default function TabsWrapper({
 
   return (
     <>
-      {/* Top Header: Title + Section Tabs + Genesi/Daily Toggle */}
+      {/* Top Header: Title + Section Tabs + Genesis/Daily Toggle */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-4 flex-wrap">
           <h1 className="text-xl font-bold tracking-tight text-gray-900">Swiss Hubs</h1>
@@ -73,7 +73,7 @@ export default function TabsWrapper({
           </div>
         </div>
 
-        {/* View mode toggle (Genesi vs Daily) */}
+        {/* View mode toggle (Genesis vs Daily) */}
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <div className="flex bg-gray-100 rounded-lg p-0.5">
             <button
@@ -84,7 +84,7 @@ export default function TabsWrapper({
                   : 'text-gray-500 hover:text-black'
               }`}
             >
-              🌱 Genesi ({currentCounts.genesis})
+              🌱 Genesis ({currentCounts.genesis})
             </button>
             <button
               onClick={() => setViewMode('daily')}

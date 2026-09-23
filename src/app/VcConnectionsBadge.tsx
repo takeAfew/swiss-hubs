@@ -11,8 +11,8 @@ interface VcConnectionsBadgeProps {
 function VcBadgeItem({ vc }: { vc: VcConnectionMatch }) {
   const [failed, setFailed] = useState(false);
   const tooltip = vc.investorNames.length > 1
-    ? `Connessioni: ${vc.investorNames.join(', ')} (${vc.fundName})`
-    : `Connesso con ${vc.investorNames[0]} (${vc.fundName})`;
+    ? `Connections: ${vc.investorNames.join(', ')} (${vc.fundName})`
+    : `Connected with ${vc.investorNames[0]} (${vc.fundName})`;
 
   return (
     <a
