@@ -34,11 +34,15 @@ export default async function Home() {
   const lastUpdated = statusRow?.updated_at || '';
 
   return (
-    <TabsWrapper
-      leads={leads}
-      initialProfiles={initialProfiles}
-      scraperStatus={scraperStatus}
-      lastUpdated={lastUpdated}
-    />
+    <div className="min-h-screen bg-gray-50/70 p-2 sm:p-4 lg:p-6 text-black">
+      <div className="max-w-[2400px] w-full mx-auto bg-white shadow-xs border border-gray-200/80 rounded-xl p-3 sm:p-5">
+        <TabsWrapper
+          leads={leads}
+          initialProfiles={initialProfiles}
+          scraperStatus={scraperStatus}
+          lastUpdated={lastUpdated}
+        />
+      </div>
+    </div>
   );
 }

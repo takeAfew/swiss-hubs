@@ -43,115 +43,88 @@ export default function TabsWrapper({
   const currentCounts = getSectionCounts(activeSection);
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Header bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-gray-200">
-        <div>
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">🇨🇭</span>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
-                Swiss Hubs
-                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold border border-emerald-200">
-                  Public Platform
-                </span>
-              </h1>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Targeting founders and early talent from <strong className="text-gray-700">EPFL</strong>, <strong className="text-gray-700">ETH Zürich</strong> & <strong className="text-gray-700">University of St.Gallen</strong>.
-              </p>
-            </div>
+    <>
+      {/* Top Header: Title + Section Tabs + Genesi/Daily Toggle */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+        <div className="flex items-center gap-4 flex-wrap">
+          <h1 className="text-xl font-bold tracking-tight text-gray-900">Swiss Hubs</h1>
+          
+          {/* The 4 Swiss Section Tabs */}
+          <div className="flex bg-gray-100 rounded-lg p-0.5 overflow-x-auto">
+            {SWISS_SECTIONS.map(sec => {
+              const counts = getSectionCounts(sec.key);
+              const isActive = activeSection === sec.key;
+              const count = viewMode === 'genesis' ? counts.genesis : counts.daily;
+
+              return (
+                <button
+                  key={sec.key}
+                  onClick={() => setActiveSection(sec.key)}
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all duration-200 ease-out active:scale-[0.97] whitespace-nowrap ${
+                    isActive
+                      ? 'bg-white text-black shadow-sm'
+                      : 'text-gray-500 hover:text-black'
+                  }`}
+                >
+                  <span>{sec.badge}</span> {sec.label} <span className="opacity-60 text-[10px]">({count})</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Status & Automated scheduler info */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-gray-200 shadow-xs text-xs text-gray-600">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="font-semibold text-gray-700">Scraper Status:</span>
-            <span className="text-gray-500 truncate max-w-[260px]" title={scraperStatus}>
-              {scraperStatus}
-            </span>
-            {lastUpdated && (
-              <span className="text-gray-400 text-[10px] ml-1" suppressHydrationWarning>
-                ({new Date(lastUpdated).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })})
+        {/* View mode toggle (Genesi vs Daily) */}
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="flex bg-gray-100 rounded-lg p-0.5">
+            <button
+              onClick={() => setViewMode('genesis')}
+              className={`px-3 py-1 text-xs font-bold rounded-md transition-all duration-200 ease-out active:scale-[0.97] ${
+                viewMode === 'genesis'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-gray-500 hover:text-black'
+              }`}
+            >
+              🌱 Genesi ({currentCounts.genesis})
+            </button>
+            <button
+              onClick={() => setViewMode('daily')}
+              className={`px-3 py-1 text-xs font-bold rounded-md transition-all duration-200 ease-out active:scale-[0.97] ${
+                viewMode === 'daily'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-gray-500 hover:text-black'
+              }`}
+            >
+              🌅 Daily ({currentCounts.daily})
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Scraper Management / Status card */}
+      <div className="mb-4 bg-white border border-gray-200 rounded-xl p-3.5 shadow-xs transition-all">
+        <div className="flex items-center justify-between cursor-default">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold tracking-tight text-black">Swiss Scraper Management</h2>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Auto: Nightly at 02:30 UTC
               </span>
+            </div>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Targeting founders and early talent from <strong className="text-gray-700">EPFL</strong>, <strong className="text-gray-700">ETH Zürich</strong> & <strong className="text-gray-700">University of St.Gallen</strong>.
+            </p>
+            {scraperStatus && (
+              <p className="text-xs text-gray-700 font-medium mt-1.5 flex items-center gap-1.5">
+                <span>⚡ Status:</span> {scraperStatus}
+                {lastUpdated && (
+                  <span className="text-gray-400 font-normal" suppressHydrationWarning>
+                    ({new Date(lastUpdated).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })})
+                  </span>
+                )}
+              </p>
             )}
           </div>
-        </div>
-      </div>
-
-      {/* Primary Navigation: The 4 Swiss Sections */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gray-100/80 p-1.5 rounded-2xl border border-gray-200/80">
-        <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
-          {SWISS_SECTIONS.map(sec => {
-            const counts = getSectionCounts(sec.key);
-            const isActive = activeSection === sec.key;
-
-            return (
-              <button
-                key={sec.key}
-                onClick={() => setActiveSection(sec.key)}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap ${
-                  isActive
-                    ? 'bg-white text-black shadow-xs ring-1 ring-black/5'
-                    : 'text-gray-600 hover:text-black hover:bg-white/50'
-                }`}
-              >
-                <span>{sec.badge}</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-semibold ${
-                  isActive ? 'bg-black text-white' : 'bg-gray-200 text-gray-700'
-                }`}>
-                  {counts.total}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Sub-view Toggle: Genesi vs Daily */}
-        <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-gray-200 shadow-xs self-start sm:self-auto">
-          <button
-            onClick={() => setViewMode('genesis')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-              viewMode === 'genesis'
-                ? 'bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs'
-                : 'text-gray-600 hover:text-black'
-            }`}
-          >
-            <span>🌱 Genesi</span>
-            <span className="text-[10px] font-semibold opacity-75">
-              ({currentCounts.genesis})
-            </span>
-          </button>
-
-          <button
-            onClick={() => setViewMode('daily')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-              viewMode === 'daily'
-                ? 'bg-blue-100 text-blue-900 border border-blue-300 shadow-2xs'
-                : 'text-gray-600 hover:text-black'
-            }`}
-          >
-            <span>🌅 Daily</span>
-            <span className="text-[10px] font-semibold opacity-75">
-              ({currentCounts.daily})
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {/* Active Section Banner */}
-      <div className="bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-2xs flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-xs text-gray-900">
-            {SWISS_SECTIONS.find(s => s.key === activeSection)?.label}:
-          </span>
-          <span className="text-xs text-gray-600">
-            {SWISS_SECTIONS.find(s => s.key === activeSection)?.description}
-          </span>
-        </div>
-        <div className="text-xs text-gray-500 font-medium">
-          Viewing: <strong className="text-gray-800">{viewMode === 'genesis' ? '🌱 Baseline Genesi' : '🌅 Nuovi Daily'}</strong>
         </div>
       </div>
 
@@ -161,6 +134,6 @@ export default function TabsWrapper({
         sectionName={activeSection}
         viewMode={viewMode}
       />
-    </div>
+    </>
   );
 }

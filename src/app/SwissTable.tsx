@@ -243,40 +243,40 @@ export function SwissTable({
   return (
     <div className="w-full">
       {/* Search & Swiss Hub Filter Bar */}
-      <div className="bg-white rounded-xl border border-gray-200/90 p-3 mb-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2.5 text-xs text-gray-500">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Swiss Hub:</span>
-          <button
-            onClick={() => setSchoolFilter('all')}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${schoolFilter === 'all' ? 'bg-black text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-          >
-            All Swiss Hubs
-          </button>
-          <button
-            onClick={() => setSchoolFilter('EPFL')}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${schoolFilter === 'EPFL' ? 'bg-red-600 text-white shadow-xs' : 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'}`}
-          >
-            <span className="w-2 h-2 rounded-full bg-red-500"></span> EPFL
-          </button>
-          <button
-            onClick={() => setSchoolFilter('ETH Zürich')}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${schoolFilter === 'ETH Zürich' ? 'bg-blue-600 text-white shadow-xs' : 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'}`}
-          >
-            <span className="w-2 h-2 rounded-full bg-blue-500"></span> ETH Zürich
-          </button>
-          <button
-            onClick={() => setSchoolFilter('St.Gallen')}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${schoolFilter === 'St.Gallen' ? 'bg-emerald-700 text-white shadow-xs' : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'}`}
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span> HSG St.Gallen
-          </button>
-        </div>
+          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Swiss Hub:</span>
+          <div className="flex bg-gray-100 rounded-lg p-0.5">
+            <button
+              onClick={() => setSchoolFilter('all')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all duration-200 ease-out active:scale-[0.97] ${schoolFilter === 'all' ? 'bg-white text-black shadow-xs' : 'text-gray-500 hover:text-black'}`}
+            >
+              All Hubs
+            </button>
+            <button
+              onClick={() => setSchoolFilter('EPFL')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all duration-200 ease-out active:scale-[0.97] ${schoolFilter === 'EPFL' ? 'bg-white text-red-700 shadow-xs' : 'text-gray-500 hover:text-black'}`}
+            >
+              🔴 EPFL
+            </button>
+            <button
+              onClick={() => setSchoolFilter('ETH Zürich')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all duration-200 ease-out active:scale-[0.97] ${schoolFilter === 'ETH Zürich' ? 'bg-white text-blue-700 shadow-xs' : 'text-gray-500 hover:text-black'}`}
+            >
+              🔵 ETH Zürich
+            </button>
+            <button
+              onClick={() => setSchoolFilter('St.Gallen')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all duration-200 ease-out active:scale-[0.97] ${schoolFilter === 'St.Gallen' ? 'bg-white text-emerald-700 shadow-xs' : 'text-gray-500 hover:text-black'}`}
+            >
+              🟢 HSG St.Gallen
+            </button>
+          </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
           {/* Quick Filter: Colleague / Network connected */}
           <button
             onClick={() => setNetworkFilter(!networkFilter)}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all flex items-center gap-1.5 ${networkFilter ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+            className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all duration-200 ease-out active:scale-[0.97] flex items-center gap-1.5 ${networkFilter ? 'bg-black text-white border-black shadow-xs' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
           >
             <span>🤝</span> Colleagues Connected
           </button>
@@ -284,11 +284,13 @@ export function SwissTable({
           {/* Quick Filter: Investor connected */}
           <button
             onClick={() => setInvestorFilter(!investorFilter)}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all flex items-center gap-1.5 ${investorFilter ? 'bg-amber-600 text-white border-amber-600 shadow-xs' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+            className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all duration-200 ease-out active:scale-[0.97] flex items-center gap-1.5 ${investorFilter ? 'bg-black text-white border-black shadow-xs' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
           >
             <span>💼</span> Investors Connected
           </button>
+        </div>
 
+        <div className="flex items-center gap-3">
           {/* Text search */}
           <input
             type="text"
@@ -298,14 +300,14 @@ export function SwissTable({
             className="px-3 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-black w-[200px]"
           />
 
-          <span className="text-xs font-medium text-gray-500">
+          <span className="text-xs font-medium text-gray-500 whitespace-nowrap">
             {filteredLeads.length} / {leads.length} leads
           </span>
         </div>
       </div>
 
       {/* Main Table */}
-      <div className="overflow-x-auto overflow-y-visible relative rounded-xl border border-gray-200 bg-white shadow-xs">
+      <div className="overflow-x-auto overflow-y-visible relative rounded-lg border border-gray-200">
         <table className="w-full text-left border-collapse table-auto">
           <thead className="sticky top-0 z-30 bg-white/95 backdrop-blur-xs shadow-xs">
             <tr className="border-b border-gray-300 text-xs font-bold text-gray-700 bg-white">
