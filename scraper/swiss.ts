@@ -32,44 +32,53 @@ async function apiRequest(endpoint: string, options: any = {}) {
   }
 
   const url = `https://api.lobstr.io/v1/${endpoint}`;
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Authorization': `Token ${LOBSTR_API_KEY}`,
-      'Content-Type': 'application/json',
-      ...(options.headers || {})
+  let lastErr = null;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const res = await fetch(url, {
+        ...options,
+        headers: {
+          'Authorization': `Token ${LOBSTR_API_KEY}`,
+          'Content-Type': 'application/json',
+          ...(options.headers || {})
+        }
+      });
+
+      if (res.status === 429) {
+        await new Promise(r => setTimeout(r, 2000));
+        continue;
+      }
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Lobstr API error [${res.status}] ${endpoint}: ${text}`);
+      }
+
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        return res.json();
+      }
+      return res.text();
+    } catch (err: any) {
+      lastErr = err;
+      await new Promise(r => setTimeout(r, 3000));
     }
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Lobstr API error [${res.status}] ${endpoint}: ${text}`);
   }
-
-  const contentType = res.headers.get('content-type');
-  if (contentType && contentType.includes('application/json')) {
-    return res.json();
-  }
-  return res.text();
+  throw lastErr || new Error(`Failed to request ${endpoint} after 5 attempts`);
 }
 
 async function waitForRunCompletion(runId: string, label: string = 'Run'): Promise<any> {
   console.log(`Waiting for ${label} (${runId}) to finish...`);
   while (true) {
     await new Promise(r => setTimeout(r, 8000));
-    const run = await apiRequest(`runs/${runId}`);
-    console.log(`[${label}] Status: ${run.status} | Results: ${run.total_results || 0}`);
-    
-    if (run.status === 'done' || run.status === 'DONE') {
-      return run;
-    }
-    if (run.status === 'error' || run.status === 'ERROR' || run.status === 'cancelled' || run.status === 'CANCELLED') {
-      throw new Error(`[${label}] failed with status: ${run.status}`);
-    }
-    if (run.status === 'paused' || run.status === 'PAUSED') {
-      const reason = run.pause_reason || 'unknown';
-      const desc = run.pause_reason_desc || '';
-      throw new Error(`[${label}] paused: ${reason} - ${desc}`);
+    try {
+      const run = await apiRequest(`runs/${runId}`);
+      console.log(`[${label}] Status: ${run.status} | Results: ${run.total_results || 0}`);
+      if (['done', 'error', 'stopped', 'aborted', 'warning'].includes(run.status)) {
+        return run;
+      }
+    } catch (e) {
+      console.warn(`Transient check error for ${label}, retrying in next cycle...`, e);
     }
   }
 }
@@ -280,19 +289,31 @@ export async function runSwissScraper(isGenesis: boolean = false) {
     };
   }).filter(l => Boolean(l.profile_url));
 
-  if (leadsToUpsert.length > 0) {
-    const { error: upsertErr } = await supabase
-      .from('swiss_leads')
-      .upsert(leadsToUpsert, { onConflict: 'profile_url' });
+  // Deduplicate by profile_url to prevent Postgres 21000 error
+  const uniqueMap = new Map<string, any>();
+  for (const lead of leadsToUpsert) {
+    if (lead.profile_url) {
+      uniqueMap.set(lead.profile_url, lead);
+    }
+  }
+  const deduplicatedLeads = Array.from(uniqueMap.values());
 
-    if (upsertErr) {
-      console.error('Supabase upsert error:', upsertErr);
-      throw upsertErr;
+  if (deduplicatedLeads.length > 0) {
+    for (let i = 0; i < deduplicatedLeads.length; i += 50) {
+      const chunk = deduplicatedLeads.slice(i, i + 50);
+      const { error: upsertErr } = await supabase
+        .from('swiss_leads')
+        .upsert(chunk, { onConflict: 'profile_url' });
+
+      if (upsertErr) {
+        console.error('Supabase upsert error:', upsertErr);
+        throw upsertErr;
+      }
     }
   }
 
-  console.log(`✓ Successfully updated ${leadsToUpsert.length} Swiss Hubs leads in Supabase!`);
-  await updateStatus(`Completato: ${leadsToUpsert.length} profili arricchiti con Squid A e B.`);
+  console.log(`✓ Successfully updated ${deduplicatedLeads.length} Swiss Hubs leads in Supabase!`);
+  await updateStatus(`Completato: ${deduplicatedLeads.length} profili arricchiti con Squid A e B.`);
 }
 
 // CLI execution
