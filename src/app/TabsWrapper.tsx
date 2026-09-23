@@ -66,7 +66,7 @@ export default function TabsWrapper({
                       : 'text-gray-500 hover:text-black'
                   }`}
                 >
-                  <span>{sec.badge}</span> {sec.label} <span className="opacity-60 text-[10px]">({count})</span>
+                  <span>{sec.badge}</span> <span className="opacity-60 text-[10px]">({count})</span>
                 </button>
               );
             })}
