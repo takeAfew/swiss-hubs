@@ -248,11 +248,26 @@ export async function runSwissScraper(isGenesis: boolean = false) {
 
   const leadsToUpsert = profileResults.map((p: any) => {
     const profileUrl = p['SALES NAVIGATOR PROFILE URL'] || p['LINKEDIN PROFILE URL'] || p.profile_url || p.url || '';
-    const section = urlToSectionMap[profileUrl] || getSectionFromUrl(p['INPUT URL'] || '');
+    let section = urlToSectionMap[profileUrl] || getSectionFromUrl(p['INPUT URL'] || '');
 
     let currentPos = p.current_positions || p.current_position || [];
     if (typeof currentPos === 'string') {
       try { currentPos = JSON.parse(currentPos); } catch (e) { currentPos = []; }
+    }
+
+    // Smart tenure classification for 1 to 2 years
+    if (section !== 'stealth') {
+      const s = currentPos[0]?.started_on || currentPos[0]?.startedOn;
+      if (s && s.year) {
+        const now = new Date();
+        const startDate = new Date(s.year, (s.month || 1) - 1);
+        const months = (now.getFullYear() - startDate.getFullYear()) * 12 + (now.getMonth() - startDate.getMonth());
+        if (months >= 12 && months <= 24) {
+          section = '1_to_2_years';
+        } else if (months < 12 && section !== 'changed_job') {
+          section = 'less_1_year';
+        }
+      }
     }
 
     let pastPos = p.past_positions || p.past_position || [];
