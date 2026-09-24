@@ -21,7 +21,7 @@ export default function TabsWrapper({
   }
 
   const [activeSection, setActiveSection] = useState<SwissSectionKey>('stealth');
-  const [viewMode, setViewMode] = useState<'genesis' | 'daily'>('genesis');
+  const [viewMode, setViewMode] = useState<'genesis' | 'daily'>('daily');
 
   // Group leads by section
   const sectionLeads = leads.filter(l => (l.section || 'stealth') === activeSection);
@@ -44,10 +44,13 @@ export default function TabsWrapper({
 
   return (
     <>
-      {/* Top Header: Title + Section Tabs + Genesis/Daily Toggle */}
+      {/* Top Header: Title + Section Tabs + Daily/Genesis Toggle */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-4 flex-wrap">
-          <h1 className="text-xl font-bold tracking-tight text-gray-900">Swiss Hubs</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold tracking-tight text-gray-900">takeAsource</h1>
+            <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-red-50 text-red-700 border border-red-200/70">🇨🇭 Swiss Hubs</span>
+          </div>
           
           {/* The 4 Swiss Section Tabs */}
           <div className="flex bg-gray-100 rounded-lg p-0.5 overflow-x-auto">
@@ -73,19 +76,9 @@ export default function TabsWrapper({
           </div>
         </div>
 
-        {/* View mode toggle (Genesis vs Daily) */}
+        {/* View mode toggle (Daily prioritized over Genesis) */}
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <div className="flex bg-gray-100 rounded-lg p-0.5">
-            <button
-              onClick={() => setViewMode('genesis')}
-              className={`px-3 py-1 text-xs font-bold rounded-md transition-all duration-200 ease-out active:scale-[0.97] ${
-                viewMode === 'genesis'
-                  ? 'bg-white text-black shadow-sm'
-                  : 'text-gray-500 hover:text-black'
-              }`}
-            >
-              🌱 Genesis ({currentCounts.genesis})
-            </button>
             <button
               onClick={() => setViewMode('daily')}
               className={`px-3 py-1 text-xs font-bold rounded-md transition-all duration-200 ease-out active:scale-[0.97] ${
@@ -95,6 +88,16 @@ export default function TabsWrapper({
               }`}
             >
               🌅 Daily ({currentCounts.daily})
+            </button>
+            <button
+              onClick={() => setViewMode('genesis')}
+              className={`px-3 py-1 text-xs font-bold rounded-md transition-all duration-200 ease-out active:scale-[0.97] ${
+                viewMode === 'genesis'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-gray-500 hover:text-black'
+              }`}
+            >
+              🌱 Genesis ({currentCounts.genesis})
             </button>
           </div>
         </div>

@@ -88,7 +88,7 @@ function getNormalLinkedinUrl(url?: string): string {
 export function SwissTable({
   leads,
   sectionName,
-  viewMode = 'genesis'
+  viewMode = 'daily'
 }: {
   leads: any[];
   sectionName: string;
@@ -330,7 +330,9 @@ export function SwissTable({
             {filteredLeads.length === 0 ? (
               <tr>
                 <td colSpan={7} className="py-8 text-center text-sm text-gray-500">
-                  No profiles found matching current filters.
+                  {viewMode === 'daily'
+                    ? 'No new profiles discovered in the latest Daily runs. Check 🌱 Genesis for the baseline talent database.'
+                    : 'No profiles found matching current filters.'}
                 </td>
               </tr>
             ) : (
