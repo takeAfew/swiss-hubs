@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { SWISS_SECTIONS, getSectionFromUrl, SwissSectionKey } from '../src/app/swissSources';
+import { SWISS_SECTIONS, getSectionFromUrl, isSwissSearchUrl, SwissSectionKey } from '../src/app/swissSources';
 
 // The two official squids on Lobstr - ready and present
 const SQUID_A_ID = 'db99446c4c6f47518cf2ebdd8f01b500'; // SN Search Scraper
@@ -91,7 +91,23 @@ export async function runSwissScraper(isGenesis: boolean = false) {
 
   await updateStatus(`Starting Swiss Hubs pipeline with Squid A and B (${isGenesis ? 'Genesis' : 'Daily'})...`);
 
-  // Ensure Squid B has email_enrichment and mobile_enrichment disabled
+  // Ensure Squid A & B settings (Zero enrichment credits, adjust skip_collected_leads for Genesis)
+  await apiRequest(`squids/${SQUID_A_ID}`, {
+    method: 'POST',
+    body: JSON.stringify({
+      params: {
+        skip_collected_leads: !isGenesis,
+        max_results: 1000,
+        max_unique_results_per_run: 1000,
+        functions: {
+          email_enrichment: false,
+          mobile_enrichment: false,
+          get_profile_details: false
+        }
+      }
+    })
+  }).catch(() => {});
+
   await apiRequest(`squids/${SQUID_B_ID}`, {
     method: 'POST',
     body: JSON.stringify({
@@ -103,6 +119,25 @@ export async function runSwissScraper(isGenesis: boolean = false) {
       }
     })
   }).catch(() => {});
+
+  // Ensure all 4 Swiss search tasks are present in Squid A
+  try {
+    const existingTasksRes = await apiRequest(`tasks?squid=${SQUID_A_ID}&limit=100`);
+    const existingUrls = new Set((existingTasksRes.data || []).map((t: any) => t.params?.url || t.url));
+    const missingTasks = SWISS_SECTIONS.filter(s => !existingUrls.has(s.searchUrl)).map(s => ({ url: s.searchUrl }));
+    if (missingTasks.length > 0) {
+      console.log(`Adding ${missingTasks.length} missing Swiss search tasks to Squid A...`);
+      await apiRequest('tasks', {
+        method: 'POST',
+        body: JSON.stringify({
+          squid: SQUID_A_ID,
+          tasks: missingTasks
+        })
+      });
+    }
+  } catch (taskErr) {
+    console.warn('Note: Could not check/add Swiss tasks to Squid A:', taskErr);
+  }
 
   // 1. Fetch latest or execute Run for Squid A
   console.log('\n[Phase 1] 🔍 Launching Squid A (Search Scraper)...');
@@ -119,7 +154,7 @@ export async function runSwissScraper(isGenesis: boolean = false) {
   // 2. Fetch CSV / results from Run A
   console.log('\n[Phase 2] 📥 Fetching search results from Squid A...');
   let s3UrlA = null;
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 60; i++) {
     const runInfo = await apiRequest(`runs/${searchRunId}`);
     if (runInfo.export_done) {
       const downloadA = await apiRequest(`runs/${searchRunId}/download`);
@@ -164,8 +199,12 @@ export async function runSwissScraper(isGenesis: boolean = false) {
 
   for (const lead of searchResults) {
     const inputUrl = lead['INPUT URL'] || lead.input_url || '';
+    if (!SWISS_SECTIONS.some(s => s.searchUrl === inputUrl) && !isSwissSearchUrl(inputUrl)) {
+      continue;
+    }
+
     const section = getSectionFromUrl(inputUrl);
-    const profileUrl = lead['SALES NAVIGATOR PROFILE URL'] || lead['LINKEDIN PROFILE URL'] || lead.profile_url || lead.url;
+    const profileUrl = lead['SALES NAVIGATOR PROFILE URL'] || lead['LINKEDIN PROFILE URL'] || lead.sales_navigator_profile_url || lead.linkedin_profile_url || lead.profile_url || lead.url;
     
     if (profileUrl) {
       swissLeadsFound.push(lead);
@@ -216,7 +255,7 @@ export async function runSwissScraper(isGenesis: boolean = false) {
   // 6. Fetch enriched profiles from Squid B
   console.log('\n[Phase 5] 💾 Ingesting enriched profiles into Supabase swiss_leads...');
   let s3UrlB = null;
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 60; i++) {
     const runInfo = await apiRequest(`runs/${profileRunId}`);
     if (runInfo.export_done) {
       const downloadB = await apiRequest(`runs/${profileRunId}/download`);
@@ -247,8 +286,8 @@ export async function runSwissScraper(isGenesis: boolean = false) {
   console.log(`✓ Fetched ${profileResults.length} deep profiles from Squid B.`);
 
   const leadsToUpsert = profileResults.map((p: any) => {
-    const profileUrl = p['SALES NAVIGATOR PROFILE URL'] || p['LINKEDIN PROFILE URL'] || p.profile_url || p.url || '';
-    let section = urlToSectionMap[profileUrl] || getSectionFromUrl(p['INPUT URL'] || '');
+    const profileUrl = p['SALES NAVIGATOR PROFILE URL'] || p['LINKEDIN PROFILE URL'] || p.sales_navigator_profile_url || p.linkedin_profile_url || p.profile_url || p.url || '';
+    let section = urlToSectionMap[profileUrl] || getSectionFromUrl(p['INPUT URL'] || p.input_url || '');
 
     let allPos = p.positions || p['POSITIONS'] || p.jobs || p.experiences || [];
     if (typeof allPos === 'string') {
