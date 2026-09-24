@@ -8,6 +8,25 @@ export interface VcConnectionMatch {
   profileUrl?: string;
 }
 
+const KNOWN_ALIASES: Record<string, string> = {
+  'victor huerbe': 'victor h',
+  'naseem moumene': 'naseem m',
+  'maximilian ochs': 'dr maximilian ochs',
+  'dr maximilian ochs': 'maximilian ochs',
+  'madison lenormand': 'madison lenormand phd',
+  'madison lenormand phd': 'madison lenormand',
+  'thomas fernandez debets': 'thomas fernandez debets dphil',
+  'thomas fernandez debets dphil': 'thomas fernandez debets',
+  'federico de ponte fede': 'federico de ponte',
+};
+
+function cleanPersonName(name: string): string {
+  if (!name) return '';
+  let str = name.replace(/\([^)]*\)/g, ' '); // remove (Fede), etc.
+  str = str.replace(/\b(dr|phd|dphil|mba|md|msc|bsc|esq)\b/gi, ' ');
+  return normalizeName(str);
+}
+
 export function getMatchingVcConnections(
   sharedConnections: any[],
   excludeFundName?: string | null
@@ -22,15 +41,26 @@ export function getMatchingVcConnections(
     if (!rawName) continue;
     const norm = normalizeName(rawName);
     if (!norm) continue;
+    const clean = cleanPersonName(rawName);
 
     for (const source of FOLLOWER_SOURCES) {
       const sourceNorm = normalizeName(source.investorName);
-      if (
+      const sourceClean = cleanPersonName(source.investorName);
+
+      const isMatch =
         norm === sourceNorm ||
+        clean === sourceClean ||
+        KNOWN_ALIASES[norm] === sourceNorm ||
+        KNOWN_ALIASES[clean] === sourceClean ||
+        KNOWN_ALIASES[norm] === sourceClean ||
         norm.startsWith(sourceNorm + ' ') ||
         norm.endsWith(' ' + sourceNorm) ||
-        norm.includes(' ' + sourceNorm + ' ')
-      ) {
+        norm.includes(' ' + sourceNorm + ' ') ||
+        clean.startsWith(sourceClean + ' ') ||
+        clean.endsWith(' ' + sourceClean) ||
+        clean.includes(' ' + sourceClean + ' ');
+
+      if (isMatch) {
         // Exclude current fund if specified
         if (excludeNorm && normalizeName(source.fundName) === excludeNorm) {
           continue;
@@ -65,3 +95,4 @@ export function getMatchingVcConnections(
 
   return Array.from(fundMap.values());
 }
+
