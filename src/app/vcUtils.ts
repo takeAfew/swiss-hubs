@@ -1,4 +1,4 @@
-import { FOLLOWER_SOURCES } from './followerSources';
+import { FOLLOWER_SOURCES, getFundLogo } from './followerSources';
 import { normalizeName, formatLinkedinUrl } from './pnpUtils';
 
 export interface VcConnectionMatch {
@@ -69,12 +69,13 @@ export function getMatchingVcConnections(
         const fundKey = source.fundName.toLowerCase();
         const rawUrl = conn?.profileUrl || conn?.profile_url || conn?.url || undefined;
         const profileUrl = rawUrl ? formatLinkedinUrl(rawUrl) : undefined;
+        const logo = source.fundLogo || getFundLogo(source.fundName) || undefined;
 
         if (!fundMap.has(fundKey)) {
           fundMap.set(fundKey, {
             fundName: source.fundName,
             investorNames: [source.investorName],
-            fundLogo: source.fundLogo,
+            fundLogo: logo,
             profileUrl: profileUrl,
           });
         } else {
@@ -85,8 +86,8 @@ export function getMatchingVcConnections(
           if (!existing.profileUrl && profileUrl) {
             existing.profileUrl = profileUrl;
           }
-          if (!existing.fundLogo && source.fundLogo) {
-            existing.fundLogo = source.fundLogo;
+          if (!existing.fundLogo && logo) {
+            existing.fundLogo = logo;
           }
         }
       }
@@ -95,4 +96,3 @@ export function getMatchingVcConnections(
 
   return Array.from(fundMap.values());
 }
-
