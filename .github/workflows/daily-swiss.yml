@@ -1,9 +1,10 @@
 name: Swiss Hubs Daily Scraper
 
+# on:
+#   schedule:
+#     # Runs every night at 02:30 UTC (FROZEN)
+#     - cron: '30 2 * * *'
 on:
-  schedule:
-    # Runs every night at 02:30 UTC
-    - cron: '30 2 * * *'
   workflow_dispatch:
     inputs:
       mode:
