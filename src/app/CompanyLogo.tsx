@@ -3,6 +3,9 @@ import topSignalsData from './topSignalsCompanies.json';
 import followerSourcesData from './followerSources.json';
 import entityProfilesData from './entityProfilesLogos.json';
 import vcLogosData from './vcLogos.json';
+import knownDomainsData from './knownDomains.json';
+import localEntityLogosData from './localEntityLogos.json';
+import localDomainLogosData from './localDomainLogos.json';
 import { getOptimizedImageUrl } from './imageUtils';
 
 // Clear any previously saved dynamic domains from localStorage
@@ -14,6 +17,14 @@ if (typeof window !== 'undefined') {
 
 // Global in-memory cache to avoid duplicate queries across components
 const logoCache = new Map<string, string | null>();
+const knownDomainsMap = new Map<string, string>();
+
+function isTokenExpired(url?: string | null): boolean {
+  if (!url) return true;
+  const match = url.match(/[?&]e=(\d+)/);
+  if (!match) return false;
+  return parseInt(match[1], 10) <= Math.floor(Date.now() / 1000);
+}
 
 function normalizeStr(str: string): string {
   if (!str) return '';
@@ -25,18 +36,36 @@ function normalizeStr(str: string): string {
 }
 
 function stripSuffixes(str: string): string {
-  return str.replace(/\b(ag|gmbh|se|plc|ltd|inc|llc|corp|corporation|group|co|spa|sa|nv)\b/gi, '').replace(/\s+/g, ' ').trim();
+  return str
+    .replace(/\b(ag|gmbh|se|plc|ltd|inc|llc|corp|corporation|group|co|spa|sa|nv)\b/gi, '')
+    .replace(/\b(switzerland|deutschland|germany|uk|united kingdom|france|italy|italia|spain|espana|netherlands|sweden|austria|europe|global|emea|apac|latam|us|usa|nordics)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Pre-seed knownDomainsMap synchronously from verified catalog
+if (knownDomainsData && typeof knownDomainsData === 'object') {
+  Object.entries(knownDomainsData).forEach(([k, v]) => {
+    const clean = k.trim().toLowerCase();
+    knownDomainsMap.set(clean, v as string);
+    knownDomainsMap.set(normalizeStr(clean), v as string);
+    const withoutParen = clean.replace(/\([^)]*\)/g, '').trim();
+    if (withoutParen) {
+      knownDomainsMap.set(withoutParen, v as string);
+      knownDomainsMap.set(normalizeStr(withoutParen), v as string);
+    }
+  });
 }
 
 // Pre-seed logoCache synchronously with top signals and follower sources
 if (Array.isArray(topSignalsData)) {
   topSignalsData.forEach((item: any) => {
-    if (item.company_name && item.company_picture) {
+    if (item.company_name && item.company_picture && !isTokenExpired(item.company_picture)) {
       const name = item.company_name.trim().toLowerCase();
       logoCache.set(name, item.company_picture);
       logoCache.set(normalizeStr(name), item.company_picture);
     }
-    if (item.company_url && item.company_picture) {
+    if (item.company_url && item.company_picture && !isTokenExpired(item.company_picture)) {
       const clean = item.company_url.split('?')[0].replace(/\/$/, '').toLowerCase();
       logoCache.set(clean, item.company_picture);
       const slug = clean.split('/').pop();
@@ -90,26 +119,23 @@ if (Array.isArray(followerSourcesData)) {
   });
 }
 
-
-// Pre-seed logoCache synchronously with all verified entity logos from database memory
-if (Array.isArray(entityProfilesData)) {
-  entityProfilesData.forEach((item: any) => {
-    const logo = item.l || item.logo_url;
-    const name = item.n || item.name;
-    const url = item.u || item.linkedin_url;
-    if (name && logo) {
-      const clean = name.trim().toLowerCase();
-      logoCache.set(clean, logo);
-      logoCache.set(normalizeStr(clean), logo);
-    }
-    if (url && logo) {
-      const clean = url.split('?')[0].replace(/\/$/, '').toLowerCase();
-      logoCache.set(clean, logo);
-      const slug = clean.split('/').pop();
-      if (slug) logoCache.set(slug, logo);
-    }
+// Pre-seed logoCache synchronously with permanent local LinkedIn-derived entity logos
+if (localEntityLogosData && typeof localEntityLogosData === 'object') {
+  Object.entries(localEntityLogosData).forEach(([k, path]) => {
+    logoCache.set(k.toLowerCase().trim(), path as string);
+    logoCache.set(normalizeStr(k), path as string);
   });
 }
+
+// Pre-seed knownDomainsMap with permanent local domain logos
+if (localDomainLogosData && typeof localDomainLogosData === 'object') {
+  Object.entries(localDomainLogosData).forEach(([k, path]) => {
+    knownDomainsMap.set(k.toLowerCase().trim(), path as string);
+    knownDomainsMap.set(normalizeStr(k), path as string);
+  });
+}
+
+
 
 // Hand-verified domains for well-known corporate giants and institutions only
 const KNOWN_DOMAINS: Record<string, string> = {
@@ -276,7 +302,7 @@ export function seedLogoCache(profiles: Array<any>) {
   });
 }
 
-export const STEALTH_LOGO = 'https://media.licdn.com/dms/image/v2/D4D0BAQGUKsfjHB8RNQ/company-logo_200_200/company-logo_200_200/0/1735368022724/stealth_startup_51_logo?e=1790208000&v=beta&t=ekdYg74zQG9DU7z_P2c0DOuJ-rouYZBkdhRMdVekBuU';
+export const STEALTH_LOGO = '/logos/stealth.png';
 
 const TUM_LOGO = 'https://media.licdn.com/dms/image/v2/D4D0BAQGYm_x_LuZ84g/company-logo_400_400/B4DZhWqognGsAY-/0/1753800673663/technische_universitat_munchen_logo?e=1790812800&v=beta&t=NTaQp-XliqCJN66GV9Er6af9QuM6934c2Wk1-E-Cnxg';
 
@@ -322,30 +348,69 @@ function getInstitutionalLogo(cleanName: string): string | null {
   }
   if (cleanName.includes('wharton')) return STATIC_LOGO_OVERRIDES['wharton'];
   if (cleanName.includes('polytechnique')) return STATIC_LOGO_OVERRIDES['ecole polytechnique'];
-  if (cleanName.includes('oxford') || cleanName.includes('oxonian')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://ox.ac.uk&size=128';
-  if (cleanName.includes('cambridge')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://cam.ac.uk&size=128';
-  if (cleanName.includes('imperial college') || cleanName.includes('imperial business')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://imperial.ac.uk&size=128';
-  if (cleanName.includes('stanford')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://stanford.edu&size=128';
-  if (cleanName.includes('harvard')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://harvard.edu&size=128';
-  if (cleanName.includes('mit') || cleanName.includes('massachusetts institute of technology')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://mit.edu&size=128';
-  if (cleanName.includes('eth zurich') || cleanName.includes('eth zürich')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://ethz.ch&size=128';
-  if (cleanName.includes('epfl')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://epfl.ch&size=128';
-  if (cleanName.includes('bocconi')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://unibocconi.it&size=128';
-  if (cleanName.includes('st. gallen') || cleanName.includes('st gallen')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://unisg.ch&size=128';
-  if (cleanName.includes('lse') || cleanName.includes('london school of economics')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://lse.ac.uk&size=128';
-  if (cleanName.includes('kcl') || cleanName.includes("king's college")) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://kcl.ac.uk&size=128';
-  if (cleanName.includes('ucl') || cleanName.includes('university college london')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://ucl.ac.uk&size=128';
-  if (cleanName.includes('london business school') || cleanName.includes('lbs')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://london.edu&size=128';
-  if (cleanName.includes('hec paris')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://hec.edu&size=128';
-  if (cleanName.includes('insead')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://insead.edu&size=128';
-  if (cleanName.includes('stockholm school of economics') || cleanName.includes('handelshögskolan')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://hhs.se&size=128';
-  if (cleanName.includes('escp')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://escp.eu&size=128';
+  if (cleanName.includes('oxford') || cleanName.includes('oxonian')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://ox.ac.uk&size=64';
+  if (cleanName.includes('cambridge')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://cam.ac.uk&size=64';
+  if (cleanName.includes('imperial college') || cleanName.includes('imperial business')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://imperial.ac.uk&size=64';
+  if (cleanName.includes('stanford')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://stanford.edu&size=64';
+  if (cleanName.includes('harvard')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://harvard.edu&size=64';
+  if (cleanName.includes('mit') || cleanName.includes('massachusetts institute of technology')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://mit.edu&size=64';
+  if (cleanName.includes('eth zurich') || cleanName.includes('eth zürich')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://ethz.ch&size=64';
+  if (cleanName.includes('epfl')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://epfl.ch&size=64';
+  if (cleanName.includes('bocconi')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://unibocconi.it&size=64';
+  if (cleanName.includes('st. gallen') || cleanName.includes('st gallen')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://unisg.ch&size=64';
+  if (cleanName.includes('lse') || cleanName.includes('london school of economics')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://lse.ac.uk&size=64';
+  if (cleanName.includes('kcl') || cleanName.includes("king's college")) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://kcl.ac.uk&size=64';
+  if (cleanName.includes('ucl') || cleanName.includes('university college london')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://ucl.ac.uk&size=64';
+  if (cleanName.includes('london business school') || cleanName.includes('lbs')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://london.edu&size=64';
+  if (cleanName.includes('hec paris')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://hec.edu&size=64';
+  if (cleanName.includes('insead')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://insead.edu&size=64';
+  if (cleanName.includes('stockholm school of economics') || cleanName.includes('handelshögskolan')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://hhs.se&size=64';
+  if (cleanName.includes('escp')) return 'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://escp.eu&size=64';
+  return null;
+}
+
+export function getDomainLogo(name: string, linkedinUrl?: string | null): string | null {
+  if (!name && !linkedinUrl) return null;
+  const cleanName = (name || '').trim().toLowerCase();
+  const normName = normalizeStr(name);
+  const withoutParen = cleanName.replace(/\([^)]*\)/g, '').trim();
+  const normWithoutParen = normalizeStr(withoutParen);
+  const strippedName = stripSuffixes(normName);
+  const cleanUrl = linkedinUrl ? linkedinUrl.split('?')[0].replace(/\/$/, '').toLowerCase() : '';
+  const urlSlug = cleanUrl ? cleanUrl.split('/').pop() : '';
+
+  let acronym = '';
+  const match = (name || '').match(/\(([^)]+)\)/);
+  if (match && match[1]) acronym = match[1].toLowerCase().trim();
+
+  const domain = knownDomainsMap.get(cleanName)
+    || knownDomainsMap.get(normName)
+    || knownDomainsMap.get(withoutParen)
+    || knownDomainsMap.get(normWithoutParen)
+    || knownDomainsMap.get(strippedName)
+    || (acronym ? knownDomainsMap.get(acronym) : null)
+    || (urlSlug ? knownDomainsMap.get(urlSlug) : null)
+    || KNOWN_DOMAINS[cleanName]
+    || KNOWN_DOMAINS[normName]
+    || KNOWN_DOMAINS[withoutParen]
+    || KNOWN_DOMAINS[strippedName];
+
+  if (domain) {
+    if (domain.startsWith('/logos/')) return domain;
+    return `https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://${domain}&size=64`;
+  }
+
+  const inst = getInstitutionalLogo(cleanName) || getInstitutionalLogo(normName) || getInstitutionalLogo(withoutParen);
+  if (inst) return inst;
+
   return null;
 }
 
 function getCachedLogo(name: string, linkedinUrl?: string | null): string | null {
   const cleanName = (name || '').trim().toLowerCase();
   const normName = normalizeStr(name);
+  const withoutParen = cleanName.replace(/\([^)]*\)/g, '').trim();
+  const normWithoutParen = normalizeStr(withoutParen);
   const strippedName = stripSuffixes(normName);
   const cleanUrl = linkedinUrl ? linkedinUrl.split('?')[0].replace(/\/$/, '').toLowerCase() : '';
   const urlSlug = cleanUrl ? cleanUrl.split('/').pop() : '';
@@ -353,32 +418,40 @@ function getCachedLogo(name: string, linkedinUrl?: string | null): string | null
   // 1. Static high-fidelity overrides
   if (cleanName && STATIC_LOGO_OVERRIDES[cleanName]) return STATIC_LOGO_OVERRIDES[cleanName];
   if (normName && STATIC_LOGO_OVERRIDES[normName]) return STATIC_LOGO_OVERRIDES[normName];
+  if (withoutParen && STATIC_LOGO_OVERRIDES[withoutParen]) return STATIC_LOGO_OVERRIDES[withoutParen];
   if (cleanUrl && STATIC_LOGO_OVERRIDES[cleanUrl]) return STATIC_LOGO_OVERRIDES[cleanUrl];
   if (urlSlug && STATIC_LOGO_OVERRIDES[urlSlug]) return STATIC_LOGO_OVERRIDES[urlSlug];
 
-  // 2. Institutional department patterns
-  const instLogo = getInstitutionalLogo(cleanName) || getInstitutionalLogo(normName);
-  if (instLogo) return instLogo;
-
-  // 3. Database memory cache (verified LinkedIn logos)
-  if (cleanName && logoCache.has(cleanName) && logoCache.get(cleanName)) return logoCache.get(cleanName)!;
-  if (normName && logoCache.has(normName) && logoCache.get(normName)) return logoCache.get(normName)!;
-  if (strippedName && logoCache.has(strippedName) && logoCache.get(strippedName)) return logoCache.get(strippedName)!;
-  if (cleanUrl && logoCache.has(cleanUrl) && logoCache.get(cleanUrl)) return logoCache.get(cleanUrl)!;
-  if (urlSlug && logoCache.has(urlSlug) && logoCache.get(urlSlug)) return logoCache.get(urlSlug)!;
-
-  // 4. Hand-verified domains for well-known corporate giants
-  const domain = KNOWN_DOMAINS[cleanName] || KNOWN_DOMAINS[normName] || KNOWN_DOMAINS[strippedName];
-  if (domain) {
-    return `https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://${domain}&size=128`;
-  }
-
-  // 5. Stealth badge
+  // 2. Stealth badge
   if (cleanName.includes('stealth') || cleanUrl.includes('stealth') || (urlSlug && urlSlug.includes('stealth'))) {
     return STEALTH_LOGO;
   }
 
-  // Strictly return null if not in verified memory - NO dynamic external guessing!
+  // 3. PRIORITY 1 (GOLDEN RULE): Logos derived from LinkedIn
+  // 3a. Local permanent assets in /logos/ (VCs and downloaded entities)
+  const localLogo =
+    logoCache.get(cleanName) ||
+    logoCache.get(normName) ||
+    logoCache.get(withoutParen) ||
+    logoCache.get(normWithoutParen) ||
+    logoCache.get(strippedName) ||
+    (cleanUrl && logoCache.get(cleanUrl)) ||
+    (urlSlug && logoCache.get(urlSlug));
+
+  if (localLogo && localLogo.startsWith('/logos/')) {
+    return localLogo;
+  }
+
+  // 3b. Active unexpired LinkedIn CDN logo
+  if (localLogo && !isTokenExpired(localLogo)) {
+    return localLogo;
+  }
+
+  // 4. PRIORITY 2 (GOLDEN RULE): Google Option (Favicon CDN / Local Domain Logo)
+  const domainLogo = getDomainLogo(name, linkedinUrl);
+  if (domainLogo) return domainLogo;
+
+  // 5. PRIORITY 3: Fallback null -> Monogram badge with initial
   return null;
 }
 
@@ -394,7 +467,11 @@ const failedUrls = new Set<string>();
 
 export const CompanyLogo = React.memo(function CompanyLogo({ name, linkedinUrl, customLogo, size = 'md' }: CompanyLogoProps) {
   const [failed, setFailed] = useState(false);
-  const logoUrl = customLogo || getCachedLogo(name, linkedinUrl);
+  const [useFallback, setUseFallback] = useState(false);
+
+  const primaryLogo = customLogo || getCachedLogo(name, linkedinUrl);
+  const domainFallback = getDomainLogo(name, linkedinUrl);
+  const activeLogo = useFallback ? domainFallback : (primaryLogo || domainFallback);
 
   const sizeClasses = {
     sm: 'w-[18px] h-[18px] min-w-[18px] max-w-[18px] rounded-[22%] text-[9px]',
@@ -402,7 +479,7 @@ export const CompanyLogo = React.memo(function CompanyLogo({ name, linkedinUrl, 
     lg: 'w-[32px] h-[32px] min-w-[32px] max-w-[32px] rounded-[22%] text-xs',
   }[size] || 'w-[26px] h-[26px] min-w-[26px] max-w-[26px] rounded-[22%] text-[11px]';
 
-  if (failed || !logoUrl || failedUrls.has(logoUrl)) {
+  if (failed || !activeLogo || failedUrls.has(activeLogo)) {
     const initial = name ? name.substring(0, 1).toUpperCase() : '?';
     const colors = ['bg-blue-500', 'bg-red-500', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500'];
     const charCode = name ? name.charCodeAt(0) : 0;
@@ -415,7 +492,7 @@ export const CompanyLogo = React.memo(function CompanyLogo({ name, linkedinUrl, 
     );
   }
 
-  const optimizedSrc = getOptimizedImageUrl(logoUrl);
+  const optimizedSrc = getOptimizedImageUrl(activeLogo);
 
   return (
     <img 
@@ -426,8 +503,12 @@ export const CompanyLogo = React.memo(function CompanyLogo({ name, linkedinUrl, 
       referrerPolicy="no-referrer"
       className={`${sizeClasses} aspect-square object-contain flex-shrink-0 rounded-[22%] overflow-hidden transition-opacity duration-200`}
       onError={() => {
-        if (logoUrl) failedUrls.add(logoUrl);
-        setFailed(true);
+        if (activeLogo) failedUrls.add(activeLogo);
+        if (!useFallback && domainFallback && domainFallback !== activeLogo && !failedUrls.has(domainFallback)) {
+          setUseFallback(true);
+        } else {
+          setFailed(true);
+        }
       }}
     />
   );
