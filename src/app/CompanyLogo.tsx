@@ -290,14 +290,23 @@ export function seedLogoCache(profiles: Array<any>) {
     const url = p.linkedin_url || p.u;
     if (name && logo) {
       const clean = name.trim().toLowerCase();
-      logoCache.set(clean, logo);
-      logoCache.set(normalizeStr(clean), logo);
+      const norm = normalizeStr(clean);
+      if (!logoCache.get(clean)?.startsWith('/logos/') && !(localEntityLogosData as Record<string, string>)[clean]) {
+        logoCache.set(clean, logo);
+      }
+      if (!logoCache.get(norm)?.startsWith('/logos/') && !(localEntityLogosData as Record<string, string>)[norm]) {
+        logoCache.set(norm, logo);
+      }
     }
     if (url && logo) {
       const clean = url.split('?')[0].replace(/\/$/, '').toLowerCase();
-      logoCache.set(clean, logo);
       const slug = clean.split('/').pop();
-      if (slug) logoCache.set(slug, logo);
+      if (!logoCache.get(clean)?.startsWith('/logos/') && !(localEntityLogosData as Record<string, string>)[clean]) {
+        logoCache.set(clean, logo);
+      }
+      if (slug && !logoCache.get(slug)?.startsWith('/logos/') && !(localEntityLogosData as Record<string, string>)[slug]) {
+        logoCache.set(slug, logo);
+      }
     }
   });
 }
@@ -428,7 +437,21 @@ function getCachedLogo(name: string, linkedinUrl?: string | null): string | null
   }
 
   // 3. PRIORITY 1 (GOLDEN RULE): Logos derived from LinkedIn
-  // 3a. Local permanent assets in /logos/ (VCs and downloaded entities)
+  // 3a. Direct check in local physical catalog (localEntityLogos.json)
+  const localDirect =
+    (localEntityLogosData as Record<string, string>)[cleanName] ||
+    (localEntityLogosData as Record<string, string>)[normName] ||
+    (localEntityLogosData as Record<string, string>)[withoutParen] ||
+    (localEntityLogosData as Record<string, string>)[normWithoutParen] ||
+    (localEntityLogosData as Record<string, string>)[strippedName] ||
+    (cleanUrl && (localEntityLogosData as Record<string, string>)[cleanUrl]) ||
+    (urlSlug && (localEntityLogosData as Record<string, string>)[urlSlug]);
+
+  if (localDirect) {
+    return localDirect;
+  }
+
+  // 3b. Local permanent assets in /logos/ (VCs and dynamic in-memory cache)
   const localLogo =
     logoCache.get(cleanName) ||
     logoCache.get(normName) ||
@@ -442,7 +465,7 @@ function getCachedLogo(name: string, linkedinUrl?: string | null): string | null
     return localLogo;
   }
 
-  // 3b. Active unexpired LinkedIn CDN logo
+  // 3c. Active unexpired LinkedIn CDN logo
   if (localLogo && !isTokenExpired(localLogo)) {
     return localLogo;
   }
