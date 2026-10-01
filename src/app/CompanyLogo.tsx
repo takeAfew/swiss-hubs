@@ -230,6 +230,9 @@ const KNOWN_DOMAINS: Record<string, string> = {
   'revolut': 'revolut.com',
   'spotify': 'spotify.com',
   'accenture': 'accenture.com',
+  'reply': 'reply.com',
+  'reply spa': 'reply.com',
+  'reply s.p.a.': 'reply.com',
   'dff ventures': 'dff.vc',
   'cherry ventures': 'cherry.vc',
   'seedcamp': 'seedcamp.com',
@@ -449,6 +452,14 @@ function getCachedLogo(name: string, linkedinUrl?: string | null): string | null
 
   if (localDirect) {
     return localDirect;
+  }
+
+  // 3a-sub. Automatic resolution for major enterprise divisions
+  if (cleanName.startsWith('accenture')) {
+    return '/logos/entities/accenture.png';
+  }
+  if (cleanName === 'reply' || cleanName.startsWith('reply ') || cleanName.endsWith(' reply')) {
+    return '/logos/entities/reply.png';
   }
 
   // 3b. Local permanent assets in /logos/ (VCs and dynamic in-memory cache)
